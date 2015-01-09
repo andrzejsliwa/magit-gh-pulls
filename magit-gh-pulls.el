@@ -260,11 +260,11 @@
   (let ((repo (magit-gh-pulls-guess-repo)))
     (when repo
       (let* ((current-branch (magit-get-current-branch))
-            (api (magit-gh-pulls-get-api))
-            (user (car repo))
-            (proj (cdr repo))
-            (req (magit-gh-pulls-build-req user proj))
-            (a (gh-pulls-new api user proj req)))
+             (api (magit-gh-pulls-get-api))
+             (user (car repo))
+             (proj (cdr repo))
+             (req (magit-gh-pulls-build-req user proj))
+             (a (gh-pulls-new api user proj req)))
         (kill-new (oref (oref a :data) :html-url))))))
 
 (defun magit-gh-pulls-reload ()
