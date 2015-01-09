@@ -219,6 +219,7 @@
     (apply 'format url info)))
 
 (defun magit-gh-pulls-open-in-browser ()
+  "Browse PR url at point."
   (interactive)
   (magit-section-action pr-browse (info)
     (pull
@@ -267,6 +268,7 @@
         (kill-new (oref (oref a :data) :html-url))))))
 
 (defun magit-gh-pulls-reload ()
+  "Reload Pull requests and refresh magit section."
   (interactive)
   (let ((creds (magit-gh-pulls-guess-repo)))
     (if (not (and creds (car creds) (cdr creds)))
