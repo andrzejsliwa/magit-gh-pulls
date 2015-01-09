@@ -58,6 +58,10 @@
 (require 'pcache)
 (require 's)
 
+(defconst magit-gh-pulls-invalid-pr-ref-err
+  "This pull request refers to invalid reference"
+  "Error message for invalid PR reference.")
+
 (defvar magit-gh-pulls-maybe-filter-pulls 'identity
   "Filter function which should validate pulls you want to be
   viewed in magit. It receives a list of pull requests and should
@@ -176,7 +180,7 @@
     (unfetched-pull
      (error "Please fetch pull request commits first"))
     (invalid-pull
-     (error "This pull request refers to invalid reference"))))
+     (error magit-gh-pulls-invalid-pr-ref-err))))
 
 (defun magit-gh-pulls-merge-pull-request ()
   (interactive)
@@ -194,7 +198,7 @@
     (unfetched-pull
      (error "Please fetch pull request commits first"))
     (invalid-pull
-     (error "This pull request refers to invalid reference"))))
+     (error magit-gh-pulls-invalid-pr-ref-err))))
 
 (defun magit-gh-pulls-fetch-commits ()
   (interactive)
@@ -207,7 +211,7 @@
                       (oref head :ref))))
     (pull nil)
     (invalid-pull
-     (error "This pull request refers to invalid reference"))))
+     (error magit-gh-pulls-invalid-pr-ref-err))))
 
 (defun magit-gh-pulls-url-for-pull (info)
   "Return github url for a pull request using INFO."
