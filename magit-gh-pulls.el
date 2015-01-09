@@ -6,7 +6,7 @@
 ;; Keywords: tools
 ;; Version: 0.4
 ;; URL: https://github.com/sigma/magit-gh-pulls
-;; Package-Requires: ((emacs "24") (gh "0.4.3") (magit "1.1.0") (pcache "0.2.3") (s "1.6.1"))
+;; Package-Requires: ((emacs "24") (gh "0.8.2") (magit "1.1.0") (pcache "0.2.3") (s "1.6.1"))
 
 ;; This file is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
