@@ -55,6 +55,8 @@
 
 (require 'magit)
 (require 'gh-pulls)
+(require 'gh-pull-comments)
+(require 'gh-issue-comments)
 (require 'pcache)
 (require 's)
 
@@ -72,6 +74,12 @@
 
 (defun magit-gh-pulls-get-api ()
   (gh-pulls-api "api" :sync t :num-retries 1 :cache (gh-cache "cache")))
+
+(defun magit-gh-pulls-issue-comments-get-api ()
+  (gh-issue-comments-api "api" :sync t :num-retries 1 :cache (gh-cache "cache")))
+
+(defun magit-gh-pulls-comments-get-api ()
+  (gh-pull-comments-api "api" :sync t :num-retries 1 :cache (gh-cache "cache")))
 
 (defun magit-gh-pulls-get-repo-from-config ()
   (let* ((cfg (magit-get "magit" "gh-pulls-repo")))
@@ -276,6 +284,83 @@
       (magit-gh-pulls-purge-cache)
       (magit-refresh))))
 
+(defun magit-gh-pulls-pull-buffer-name (user proj id)
+  "Compose name of PR comments buffer with USER, PROJ and pr ID."
+  (format "*magit-gh-pulls-%s-%s-#%s" user proj id))
+
+(defun magit-gh-pulls-pull-comments-entries (user proj id)
+  "Get the comments of a PR for USER, PROJ and ID.
+A PR can have global comments or comments related to PR commits.
+This function returns both."
+  (let ((repo (magit-gh-pulls-guess-repo)))
+    (when repo
+      (let* ((api (magit-gh-pulls-issue-comments-get-api))
+	     (pulls-api (magit-gh-pulls-comments-get-api))
+	     (issue-comments (oref (gh-issue-comments-list api user proj id) :data))
+	     (pull-comments (oref (gh-pull-comments-list pulls-api user proj id) :data)))
+	(append issue-comments pull-comments)))))
+
+(defun magit-gh-pulls-format-pull-comment-time (time)
+  "Format TIME with 'nice' style for comments."
+  (let ((format "%d/%m/%Y %H:%M:%S"))
+    (format-time-string format (date-to-time time))))
+
+(defun magit-gh-pulls-pull-buffer (user proj id)
+  "Return PR buffer for USER,PROJ and ID if it exists."
+  (get-buffer (magit-gh-pulls-pull-buffer-name user proj id)))
+
+(defun magit-gh-pulls-insert-pull-comment (comment)
+  "Insert COMMENT attributes into current buffer."
+  (let ((created-at (magit-gh-pulls-format-pull-comment-time (oref comment :created_at)))
+        (user (oref (oref comment :user) :login))
+        (body (oref comment :body)))
+    (insert (format "[%s] %s commented:\n%s" created-at user body))))
+
+(defun magit-gh-pulls-insert-pull-comments (user proj id)
+  "Insert into current buffer the comments of PR for USER, PROJ and ID."
+  (let ((comments (magit-gh-pulls-pull-comments-entries user proj id)))
+    (when (> (length comments) 0)
+      (insert "Comments:\n\n")
+      (dolist (comment comments)
+        (magit-gh-pulls-insert-pull-comment comment)
+        (unless (equal comment (car (last comments)))
+          (insert "\n---\n\n"))))))
+
+(defun magit-gh-pulls-cleanup-carriage-return ()
+  "Remove ^M from current buffer."
+  (beginning-of-buffer)
+  (replace-regexp "" "")
+  (beginning-of-buffer))
+
+(defun magit-gh-pulls-insert-pull-info (user proj id)
+  "Insert info about PR for USER, PROJ and ID into current buffer."
+  (let* ((api (magit-gh-pulls-get-api))
+         (req (oref (gh-pulls-get api user proj id) :data))
+         (title (oref req :title))
+         (body (or (oref req :body) "No description provided.")))
+    (insert (format "#%s - %s\n\n%s\n\n" id title body))
+    (magit-gh-pulls-insert-pull-comments user proj id)
+    (magit-gh-pulls-cleanup-carriage-return)))
+
+(defun magit-gh-pulls-switch-to-pull-buffer (user proj id)
+  "Switch to the PR buffer with name composed by USER, PROJ AND ID."
+  (let ((buffer-p (magit-gh-pulls-pull-buffer user proj id))
+        (buffer (get-buffer-create (magit-gh-pulls-pull-buffer-name user proj id))))
+    (pop-to-buffer buffer)
+    (unless buffer-p
+      (magit-gh-pulls-insert-pull-info user proj id)
+      (beginning-of-buffer)
+      (magit-gh-pulls-view-mode))))
+
+(defun magit-gh-pulls-view ()
+  "View PR info."
+  (interactive)
+  (magit-section-action pr-view (info)
+    (unfetched-pull (apply `magit-gh-pulls-switch-to-pull-buffer info))
+    (pull (apply `magit-gh-pulls-switch-to-pull-buffer info))
+    (invalid-pull
+     (error magit-gh-pulls-invalid-pr-ref-err))))
+
 (easy-menu-define magit-gh-pulls-extension-menu
   nil
   "GitHub Pull Requests extension menu"
@@ -285,6 +370,7 @@
     ["Create pull request branch" magit-gh-pulls-create-branch]
     ["Fetch pull request commits" magit-gh-pulls-fetch-commits]
     ["Open pull request in browser" magit-gh-pulls-open-in-browser]
+    ["View pull request" magit-gh-pulls-view]
     ))
 
 (easy-menu-add-item 'magit-mode-menu
@@ -299,9 +385,17 @@
     (define-key map (kbd "# g m") 'magit-gh-pulls-merge-pull-request)
     (define-key map (kbd "# g c") 'magit-gh-pulls-create-pull-request)
     (define-key map (kbd "# g o") 'magit-gh-pulls-open-in-browser)
+    (define-key map (kbd "# g v") 'magit-gh-pulls-view)
     map))
 
 (defvar magit-gh-pulls-mode-lighter " Pulls")
+
+
+;;;###autoload
+
+(define-derived-mode magit-gh-pulls-view-mode special-mode "Magit-gh-pulls-view"
+  "Mode for viewing a GH pull request."
+  (view-mode 1))
 
 ;;;###autoload
 (define-minor-mode magit-gh-pulls-mode "Pull requests support for Magit"
